@@ -38,7 +38,8 @@ for i = 1:1:length(audio_list)
     mrcg = cell(split_num, 1);
     
     for j = 1:1:split_num
-        mrcg{j, 1} = mfcc(noisy_speech(:, j), audio_sr)';
+	[mm,aspc] =  melfcc(noisy_speech(:, j), audio_sr);
+        mrcg{j, 1} = mm';
         %mrcg{j, 1} = MRCG_features(noisy_speech(:, j), audio_sr)';
         %     imagesc(s(20000:20500,:)*1000)
     end

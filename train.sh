@@ -10,5 +10,5 @@ train=`realpath $pylibdir/train.py`
 # m 3 : LSTM
 # e : extract MRCG feature (1) or not (0)
 
-python3 $train -m 0 -e 1 --prj_dir=$curdir
+python3 $train -m 2 -e 1 --prj_dir=$curdir
 
