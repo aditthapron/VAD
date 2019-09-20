@@ -1,26 +1,80 @@
+#!/usr/bin/env python
+# coding: utf-8
+
+# In[1]:
+
+
+import glob
+import math
+import librosa as rosa
 import numpy as np
 import os
-import glob
-import utils
-import scipy.io as sio
+from scipy.io import loadmat
+from scipy.signal import resample
+from sklearn.preprocessing import StandardScaler,MinMaxScaler
+from sklearn.model_selection import train_test_split
+
+
+# In[2]:
+
+
+def MFCC_extractor(data_dir,save_dir,sound_len):
+    audio_sr = 16000
+    
+
+    audio_list = glob.glob(data_dir+"/*.wav", recursive=True)
+    label_list = glob.glob(data_dir+"/*.mat", recursive=True)
+
+    winlen = math.ceil(audio_sr*25*0.001)
+    winstep = math.ceil(audio_sr*10*0.001)
+    train_data = []
+    train_y = []
+    for i in range(len(audio_list)):
+        data,_ = rosa.load(audio_list[i],audio_sr)
+       
+        
+        n_frame =  int(len(data)/ (sound_len * audio_sr))
+        data = data[:int(n_frame * sound_len * audio_sr)]
+        data = np.reshape(data,(n_frame,int(sound_len * audio_sr)))
+        
+        for j in range(n_frame):
+            mfcc = rosa.feature.mfcc(data[j],audio_sr,n_mfcc=8, n_fft=1024, hop_length=256).reshape((1,8,-1))
+            try:
+                train_data = np.concatenate((train_data,mfcc))
+            except:
+                train_data = mfcc
+                
+        y = loadmat(label_list[i])['y_label'].flatten()
+        y = y[:int(n_frame * sound_len * audio_sr)]
+        y = np.reshape(y,(n_frame,int(sound_len * audio_sr)))
+        try:
+            train_y = np.concatenate((train_y,y))
+        except: 
+            train_y = y
+        
+    train_data = np.swapaxes(train_data,1,2)
+    train_y = np.array(resample(train_y,train_data.shape[1],axis = 1)>0.5,dtype=int)
+    return train_data,train_y
+        
 
 
 class DataReader(object):
 
     def __init__(self, input_dir, output_dir, norm_dir, w=19, u=9, name=None):
         # print(name + " data reader initialization...")
-        self._input_dir = input_dir
-        self._output_dir = output_dir
-        self._norm_dir = norm_dir
-        self._input_file_list = sorted(glob.glob(input_dir+'/*.bin'))
-        self._input_spec_list = sorted(glob.glob(input_dir+'/*.txt'))
-        self._output_file_list = sorted(glob.glob(output_dir+'/*.bin'))
-        self._file_len = len(self._input_file_list)
-        self._name = name
-        assert self._file_len == len(self._output_file_list), "# input files and output file is not matched"
-        self._w = w
-        self._u = u
-        self.eof = False
+        X,y = MFCC_extractor("Recorded_data",".",20)
+        X = X.reshape(-1,8)
+        y = y.flatten()
+
+        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.5, random_state=0)
+        X_train, X_val, y_train, y_val = train_test_split(X_train, y_train, test_size=0.09, random_state=0)
+        #normalization
+        scaler = MinMaxScaler()
+        scaler.fit(X_train)
+        X_train = scaler.transform(X_train)
+        X_val = scaler.transform(X_val)
+        X_test = scaler.transform(X_test)
+
         self.file_change = False
         self.num_samples = 0
 
@@ -31,50 +85,9 @@ class DataReader(object):
         self._num_file = 0
         self._start_idx = self._w
 
-        # self._inputs = self._padding(
-        #     self._read_input(self._input_file_list[self._num_file],
-        #                      self._input_spec_list[self._num_file]), self._pad, self._w)
-        #
-        # self._outputs = self._padding(self._read_output(self._output_file_list[self._num_file]), self._pad, self._w)
-        #
-        # self.eof = False
-        # self.file_change = False
-        # self._outputs = self._outputs[0:self._inputs.shape[0]]
-        # assert np.shape(self._inputs)[0] == np.shape(self._outputs)[0], \
-        #     ("# samples is not matched between input: %d and output: %d files"
-        #      % (np.shape(self._inputs)[0], np.shape(self._outputs)[0]))
-        #
-        # self.num_samples = np.shape(self._outputs)[0]
-
-        norm_param = sio.loadmat(self._norm_dir+'/global_normalize_factor.mat')
-        self.train_mean = norm_param['global_mean']
-        self.train_std = norm_param['global_std']
-
         self.raw_inputs = 0  # adding part
         # print("Done.")
         # print("BOF : " + self._name + " file_" + str(self._num_file).zfill(2))
-
-    def _binary_read_with_shape(self):
-        pass
-
-    @staticmethod
-    def _read_input(input_file_dir, input_spec_dir):
-
-        data = np.fromfile(input_file_dir, dtype=np.float32)  # (# total frame, feature_size)
-        with open(input_spec_dir,'r') as f:
-            spec = f.readline()
-            size = spec.split(',')
-        data = data.reshape((int(size[0]), int(size[1])), order='F')
-
-        return data
-
-    @staticmethod
-    def _read_output(output_file_dir):
-
-        data = np.fromfile(output_file_dir, dtype=np.float32)  # data shape : (# total frame,)
-        data = data.reshape(-1, 1)  # data shape : (# total frame, 1)
-
-        return data
 
     @staticmethod
     def _padding(inputs, batch_size, w_val):
@@ -100,47 +113,7 @@ class DataReader(object):
                  % (np.shape(self._inputs)[0], np.shape(self._outputs)[0]))
 
             self.num_samples = np.shape(self._outputs)[0]
-
-        if self._start_idx + batch_size > self.num_samples:
-
-            self._start_idx = self._w
-            self.file_change = True
-            self._num_file += 1
-
-            # print("EOF : " + self._name + " file_" + str(self._num_file-1).zfill(2) +
-            #       " -> BOF : " + self._name + " file_" + str(self._num_file).zfill(2))
-
-            if self._num_file > self._file_len - 1:
-                self.eof = True
-                self._num_file = 0
-                # print("EOF : last " + self._name + " file. " + "-> BOF : " + self._name + " file_" +
-                #       str(self._num_file).zfill(2))
-
-            # self._inputs = self._read_input(self._input_file_list[self._num_file], self._input_spec_list[self._num_file])
-            # self._outputs = self._read_output(self._output_file_list[self._num_file])
-
-            self._inputs = self._padding(
-                self._read_input(self._input_file_list[self._num_file],
-                                 self._input_spec_list[self._num_file]), batch_size, self._w)
-
-            self._outputs = self._padding(self._read_output(self._output_file_list[self._num_file]), batch_size, self._w)
-
-            data_len = np.shape(self._inputs)[0]
-            self._outputs = self._outputs[0:data_len, :]
-
-            assert np.shape(self._inputs)[0] == np.shape(self._outputs)[0], \
-                ("# samples is not matched between input: %d and output: %d files"
-                 % (np.shape(self._inputs)[0], np.shape(self._outputs)[0]))
-
-            self.num_samples = np.shape(self._outputs)[0]
-
-        else:
-            self.file_change = False
-            self.eof = False
-
-        inputs = self._inputs[self._start_idx - self._w:self._start_idx + batch_size + self._w, :]
-        self.raw_inputs = inputs  # adding part
-        inputs = self.normalize(inputs)
+        
         inputs = utils.bdnn_transform(inputs, self._w, self._u)
         inputs = inputs[self._w: -self._w, :]
 
@@ -152,33 +125,3 @@ class DataReader(object):
 
         return inputs, outputs
 
-    def normalize(self, x):
-        x = (x - self.train_mean)/self.train_std
-        return x
-
-    def reader_initialize(self):
-        self._num_file = 0
-        self._start_idx = 0
-        self.eof = False
-
-    def eof_checker(self):
-        return self.eof
-
-    def file_change_checker(self):
-        return self.file_change
-
-    def file_change_initialize(self):
-        self.file_change = False
-
-    def set_random_batch(self, batch_size):
-        self._start_idx = np.maximum(0, np.random.random_integers(self.num_samples - batch_size))
-
-
-def dense_to_one_hot(labels_dense, num_classes=2):
-    """Convert class labels from scalars to one-hot vectors."""
-    # copied from TensorFlow tutorial
-    num_labels = labels_dense.shape[0]
-    index_offset = np.arange(num_labels) * num_classes
-    labels_one_hot = np.zeros((num_labels, num_classes))
-    labels_one_hot.flat[index_offset + labels_dense.ravel()] = 1
-    return labels_one_hot
