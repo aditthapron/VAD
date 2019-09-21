@@ -28,7 +28,7 @@ initial_logs_dir = "/home/sbie/github/VAD_Project_test/VAD_LSTM/logs_LSTM"
 ckpt_name = "/model.ckpt-12000"
 
 reset = False  # remove all existed logs and initialize log directories
-device = "/gpu:1"
+device = "/cpu:1"
 mode = 'test'
 if mode is 'test':
     reset = False
@@ -64,8 +64,8 @@ valid_batch_size = batch_size
 
 assert (w-1) % u == 0, "w-1 must be divisible by u"
 
-width = 768
-num_features = 768  # MRCG feature
+width = 8
+num_features = 8  # MRCG feature
 bdnn_winlen = (((w-1) / u) * 2) + 3
 
 # bdnn_inputsize = int(bdnn_winlen * num_features)
