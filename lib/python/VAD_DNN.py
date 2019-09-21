@@ -61,7 +61,7 @@ valid_batch_size = batch_size
 
 assert (w-1) % u == 0, "w-1 must be divisible by u"
 
-num_features = 13  # MRCG feature
+num_features = 768  # MRCG feature
 bdnn_winlen = (((w-1) / u) * 2) + 3
 
 bdnn_inputsize = int(bdnn_winlen * num_features)

@@ -15,7 +15,7 @@ import path_setting as ps
 # ckpt_name = '/model9918and41.ckpt-2'
 # model_dir = "./saved_model"
 # valid_batch_size = 4134
-print('debug')
+
 if __name__ == '__main__':
 
     try:
@@ -53,9 +53,9 @@ if __name__ == '__main__':
         os.system("mkdir " + save_dir + '/train')
         os.system("mkdir " + save_dir + '/valid')
         os.system(
-            "matlab -r \"addpath('./lib/matlab/'); acoustic_feat_ex(\'%s\',\'%s\'); quit\"" % (train_data_dir, train_save_dir))
+            "matlab -r \"try acoustic_feat_ex(\'%s\',\'%s\'); catch; end; quit\"" % (train_data_dir, train_save_dir))
         os.system(
-            "matlab -r \"addpath('./lib/matlab/'); acoustic_feat_ex(\'%s\',\'%s\'); quit\"" % (valid_data_dir, valid_save_dir))
+            "matlab -r \"try acoustic_feat_ex(\'%s\',\'%s\'); catch; end; quit\"" % (valid_data_dir, valid_save_dir))
 
         train_norm_dir = save_dir + '/train/global_normalize_factor.mat'
         test_norm_dir = prj_dir + '/norm_data/global_normalize_factor.mat'

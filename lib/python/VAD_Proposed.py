@@ -1,6 +1,3 @@
-import matplotlib as mpl
-mpl.use('Agg')
-import matplotlib.pyplot as plt
 import tensorflow as tf
 import numpy as np
 import utils as utils
@@ -70,7 +67,11 @@ summary_list = ["cost", "accuracy_SNR_-5", "accuracy_SNR_0", "accuracy_SNR_5", "
 w = 19  # w default = 19
 u = 9  # u default = 9
 assert (w-1) % u == 0, "w-1 must be divisible by u"
+<<<<<<< HEAD
 num_features = 8  # for MRCG feature
+=======
+num_features = 768  # for MRCG feature
+>>>>>>> parent of 92da9f7... pass MFCC via Matlab
 bdnn_winlen = (((w-1) / u) * 2) + 3
 bdnn_inputsize = int(bdnn_winlen * num_features)
 bdnn_outputsize = int(bdnn_winlen)
