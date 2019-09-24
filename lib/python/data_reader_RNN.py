@@ -130,7 +130,7 @@ class DataReader(object):
 
         self._start_idx += batch_size
 
-        return inputs, outputs
+        return np.nan_to_num(inputs), outputs
 
     # def next_batch(self, batch_size):
     #

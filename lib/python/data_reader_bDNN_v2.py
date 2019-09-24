@@ -150,7 +150,7 @@ class DataReader(object):
 
         self._start_idx += batch_size
 
-        return inputs, outputs
+        return np.nan_to_num(inputs), outputs
 
     def normalize(self, x):
         x = (x - self.train_mean)/self.train_std

@@ -32,7 +32,7 @@ def freeze_graph(model_dir, output_dir, output_node_names):
     
     # We precise the file fullname of our freezed graph
     absolute_model_dir = "/".join(input_checkpoint.split('/')[:-1])
-    localtime = time.asctime( time.localtime(time.time()))
+    localtime = time.asctime( time.localtime(time.time())).replace(' ','_')
 
     # output_graph = absolute_model_dir + "/frozen_model_" + localtime + ".pb"
     output_graph = output_dir + "/frozen_model_" + localtime + ".pb"

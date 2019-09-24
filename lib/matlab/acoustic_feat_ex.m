@@ -8,7 +8,7 @@ rng(0);
 % system(['mkdir ', save_dir]);
 system(['mkdir ', save_dir, '/Normalize_Factor']);
 system(['mkdir ', save_dir, '/Labels']);
-
+system(['mkdir ', save_dir, '/global_normalize_factor']);
 %% Parameter setting
 
 audio_sr = 16000;
@@ -49,8 +49,8 @@ for i = 1:1:length(audio_list)
     size(mrcg_mat)
     %% Save normalization factor
     
-    temp_mean = mean(mrcg_mat,1);
-    temp_std = std(mrcg_mat,1,1);
+    temp_mean = nanmean(mrcg_mat,1);
+    temp_std = nanstd(mrcg_mat,1,1);
     save([save_dir, '/Normalize_Factor/normalize_factor_', sprintf('%3.3d', i)],'temp_mean', 'temp_std');
     train_mean = temp_mean + train_mean;
     train_std = temp_std + train_std;

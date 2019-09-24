@@ -65,7 +65,7 @@ valid_batch_size = batch_size
 # assert (target_delay-1) % u == 0, "target_delay-1 must be divisible by u"
 
 width = 768
-num_features = 768  # MRCG feature
+num_features = 13  # MRCG feature
 bdnn_winlen = (((target_delay-1) / u) * 2) + 3
 
 # bdnn_inputsize = int(bdnn_winlen * num_features)

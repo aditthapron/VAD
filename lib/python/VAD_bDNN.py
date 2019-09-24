@@ -26,7 +26,7 @@ initial_logs_dir = "/home/sbie/storage2/VAD_Database/saved_model/my_converted_ch
 logs_dir = "/home/sbie/github/VAD_Project/VAD_bDNN/logs_bDNN"
 ckpt_name = '/bDNN'
 reset = True  # remove all existed logs and initialize log directories
-device = '/gpu:0'
+device = '/cpu:0'
 
 if mode is 'test':
     reset = False
@@ -59,7 +59,7 @@ valid_batch_size = batch_size
 
 assert (w-1) % u == 0, "w-1 must be divisible by u"
 
-num_features = 768  # MRCG feature
+num_features = 13  # MRCG feature
 bdnn_winlen = (((w-1) / u) * 2) + 3
 
 bdnn_inputsize = int(bdnn_winlen * num_features)
@@ -129,8 +129,11 @@ def inference(inputs, keep_prob, is_training=True):
 
     # initialization
     # h1_out = affine_transform(inputs, num_hidden_1, name="hidden_1")
+
     h1_out = utils.batch_norm_affine_transform(inputs, num_hidden_1, name="hidden_1", decay=decay, is_training=is_training)
+    
     h1_out = tf.nn.relu(h1_out)
+
     h1_out = tf.nn.dropout(h1_out, keep_prob=keep_prob)
 
     # h2_out = utils.batch_norm_affine_transform(h1_out, num_hidden_2, name="hidden_2")
@@ -359,7 +362,7 @@ class Model(object):
         # set objective function
         # self.cost = cost = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(labels=labels, logits=logits))
 
-        self.cost = cost = tf.reduce_mean(tf.square(labels - logits))
+        self.cost = cost = tf.reduce_mean(tf.square(self.labels - self.logits))
 
         # cost = tf.nn.softmax_cross_entropy_with_logits(labels=labels, logits=logits)
         # cost = tf.reduce_sum(tf.square(labels - logits), axis=1)

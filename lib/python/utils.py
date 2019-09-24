@@ -460,8 +460,15 @@ def batch_norm_affine_transform(x, output_dim, decay=0, name=None, seed=0, is_tr
     """
     # initializer = tf.contrib.layers.xavier_initializer(seed=seed)
 
-    w = tf.get_variable(name+"_w", [x.get_shape()[1], output_dim], initializer = tf.contrib.layers.xavier_initializer(seed=seed))
-    b = tf.get_variable(name+"_b", [output_dim], initializer=tf.constant_initializer(0.0))
+    w = tf.get_variable(name+"_w", [x.get_shape()[1], output_dim], initializer = tf.contrib.layers.xavier_initializer())
+    b = tf.get_variable(name+"_b", [output_dim], initializer=tf.zeros_initializer())
+    # w_init = tf.contrib.layers.xavier_initializer()
+    # b_init = tf.constant_initializer(0.0)
+    # w = tf.Variable(w_init(shape=(x.get_shape()[1], output_dim)),name+"_w")
+    # b = tf.Variable(b_init(shape=output_dim),name+"_b")
+    # x = tf.Print(x, [x], message="This is x: ")
+    # w = tf.Print(w, [w], message="This is w: ")
+    # b = tf.Print(b, [b], message="This is b: ")
     affine_result = tf.matmul(x, w) + b
     batch_norm_result = tf.contrib.layers.batch_norm(affine_result, decay=decay, is_training=is_training,
                                                      updates_collections=None)

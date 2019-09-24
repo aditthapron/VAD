@@ -128,7 +128,7 @@ class DataReader(object):
         self._start_idx += batch_size
         # print(self._start_idx)
         # print(self.num_samples)
-        return inputs, outputs
+        return np.nan_to_num(inputs), outputs
 
         #num_batches = (np.shape(self._outputs)[0] - np.shape(self._outputs)[0] % batch_size) / batch_size
     def normalize(self, x):

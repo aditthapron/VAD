@@ -36,6 +36,7 @@ class DataReader(object):
         norm_param = sio.loadmat(self._norm_dir+'/global_normalize_factor.mat')
         self.train_mean = norm_param['global_mean']
         self.train_std = norm_param['global_std']
+
         self.raw_inputs = 0  # adding part
 
         # print("Done")
@@ -74,7 +75,6 @@ class DataReader(object):
         return inputs
 
     def next_batch(self, batch_size):
-
         if self._start_idx == self._w:
             self._inputs = self._padding(
                 self._read_input(self._input_file_list[self._num_file],
@@ -131,7 +131,7 @@ class DataReader(object):
 
         self._start_idx += batch_size
 
-        return inputs, outputs
+        return np.nan_to_num(inputs), outputs
 
         #num_batches = (np.shape(self._outputs)[0] - np.shape(self._outputs)[0] % batch_size) / batch_size
     def normalize(self, x):

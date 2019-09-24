@@ -412,7 +412,7 @@ def main(prj_dir=None, model=None, mode=None):
     sess = tf.Session(config=sess_config)
 
     if mode is 'train':
-        train_summary_writer = tf.summary.FileWriter(logs_dir + '/train/', sess.graph, max_queue=2)
+        train_summary_writer = tf.summary.FileWriter(logs_dir + '/train/',  max_queue=2)
         valid_summary_writer = tf.summary.FileWriter(logs_dir + '/valid/', max_queue=2)
 
     if ckpt and ckpt.model_checkpoint_path:  # model restore
@@ -435,6 +435,7 @@ def main(prj_dir=None, model=None, mode=None):
         for itr in range(max_epoch):
 
             train_inputs, train_labels = train_data_set.next_batch(batch_size)
+            
             # imgplot = plt.imshow(train_inputs)
             # plt.show()
             one_hot_labels = train_labels.reshape((-1, 1))
