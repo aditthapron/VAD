@@ -1,6 +1,8 @@
 logs/
 logs_proposed/
 logs_backup
+Recorded_data/
+saved_model/
 __pycache__/
 *.txt
-
+data/
