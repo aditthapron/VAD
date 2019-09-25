@@ -793,7 +793,8 @@ def main(prj_dir=None, model=None, mode=None):
         print("Model restored...")
         print(initial_logs_dir+ckpt_name)
         if mode is 'train':
-            saver.restore(sess, ckpt.model_checkpoint_path)
+            sess.run(tf.global_variables_initializer())
+            #saver.restore(sess, ckpt.model_checkpoint_path)
         else:
             saver.restore(sess, initial_logs_dir+ckpt_name)
             saver.save(sess, initial_logs_dir + "/model_ACAM.ckpt", 0)  # model save
@@ -815,11 +816,11 @@ def main(prj_dir=None, model=None, mode=None):
             train_inputs, train_labels = train_data_set.next_batch(batch_size)
 
             feed_dict = {m_train.inputs: train_inputs, m_train.labels: train_labels,
-                         m_train.keep_probability: dropout_rate}
+                         m_train.keep_probability: 1.0-dropout_rate}
 
             sess.run(m_train.train_op, feed_dict=feed_dict)
 
-            if itr % 10 == 0 and itr >= 0:
+            if itr % 1 == 0 and itr >= 0:
 
                 train_cost, train_reward, train_avg_b, train_rminusb, train_p_bps, train_lr \
                     = sess.run([m_train.cost, m_train.reward, m_train.avg_b, m_train.rminusb, m_train.p_bps,
@@ -838,14 +839,14 @@ def main(prj_dir=None, model=None, mode=None):
             # if train_data_set.eof_checker():
 
             # if itr % val_freq == 0 and itr >= val_start_step:
-            if itr % 50 == 0 and itr > 0:
+            if itr % 5 == 0 and itr > 0:
                 saver.save(sess, logs_dir + "/model.ckpt", itr)  # model save
                 print('validation start!')
                 valid_accuracy, valid_cost = \
                     utils.do_validation(m_valid, sess, valid_file_dir, norm_dir,
                                         type='ACAM')
 
-                print("valid_cost: %.4f, valid_accuracy=%4.4f" % (valid_cost, valid_accuracy * 100))
+                print("valid_cost: %.4f, valid_accuracy=%4.4f" % (valid_cost, valid_accuracy))
                 valid_cost_summary_str = sess.run(cost_summary_op, feed_dict={summary_ph: valid_cost})
                 valid_accuracy_summary_str = sess.run(accuracy_summary_op, feed_dict={summary_ph: valid_accuracy})
                 valid_summary_writer.add_summary(valid_cost_summary_str, itr)  # write the train phase summary to event files

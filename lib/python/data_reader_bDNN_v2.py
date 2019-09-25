@@ -7,15 +7,24 @@ import scipy.io as sio
 
 class DataReader(object):
 
-    def __init__(self, input_dir, output_dir, norm_dir, w=19, u=9, name=None):
+    def __init__(self, input_dir, output_dir, norm_dir, w=19, u=9, name=None,batch_size=2048):
         # print(name + " data reader initialization...")
         self._input_dir = input_dir
         self._output_dir = output_dir
         self._norm_dir = norm_dir
-        self._input_file_list = sorted(glob.glob(input_dir+'/*.bin'))
-        self._input_spec_list = sorted(glob.glob(input_dir+'/*.txt'))
-        self._output_file_list = sorted(glob.glob(output_dir+'/*.bin'))
+        self.batch_size = batch_size
+
+        self._input_file_list = np.array(sorted(glob.glob(input_dir+'/*.bin')))
+        self._input_spec_list = np.array(sorted(glob.glob(input_dir+'/*.txt')))
+        self._output_file_list = np.array(sorted(glob.glob(output_dir+'/*.bin')))
         self._file_len = len(self._input_file_list)
+
+        self.index = np.arange(self._file_len)
+        np.random.shuffle(self.index)
+        self._input_file_list = self._input_file_list[self.index]
+        self._input_spec_list = self._input_spec_list[self.index]
+        self._output_file_list = self._output_file_list[self.index]
+
         self._name = name
         assert self._file_len == len(self._output_file_list), "# input files and output file is not matched"
         self._w = w
@@ -86,8 +95,10 @@ class DataReader(object):
         inputs = np.concatenate((window_pad, inputs, window_pad), axis=0)
         return inputs
 
-    def next_batch(self, batch_size):
+    
 
+    def next_batch(self):
+        batch_size = self.batch_size
         if self._start_idx == self._w:
             self._inputs = self._padding(
                 self._read_input(self._input_file_list[self._num_file],
@@ -113,6 +124,7 @@ class DataReader(object):
             if self._num_file > self._file_len - 1:
                 self.eof = True
                 self._num_file = 0
+                return None,None
                 # print("EOF : last " + self._name + " file. " + "-> BOF : " + self._name + " file_" +
                 #       str(self._num_file).zfill(2))
 
@@ -150,7 +162,19 @@ class DataReader(object):
 
         self._start_idx += batch_size
 
-        return np.nan_to_num(inputs), outputs
+        yield np.nan_to_num(inputs), outputs
+
+    def gen_all(self, batch_size):
+        x,y=[],[]
+        while True:
+            if len(x) == 0:
+                x,y = self.next_batch(batch_size)
+            else:
+                x_temp,y_temp = self.next_batch(batch_size)
+                if x_temp is None:
+                    break
+                x,y = np.concatenate((x,x_temp)),np.concatenate((y,y_temp))
+        return x,y
 
     def normalize(self, x):
         x = (x - self.train_mean)/self.train_std

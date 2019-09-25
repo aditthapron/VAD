@@ -14,10 +14,17 @@ class DataReader(object):
         self._input_dir = input_dir
         self._output_dir = output_dir
         self._norm_dir = norm_dir
-        self._input_file_list = sorted(glob.glob(input_dir+'/*.bin'))
-        self._input_spec_list = sorted(glob.glob(input_dir+'/*.txt'))
-        self._output_file_list = sorted(glob.glob(output_dir+'/*.bin'))
+        self._input_file_list = np.array(sorted(glob.glob(input_dir+'/*.bin')))
+        self._input_spec_list = np.array(sorted(glob.glob(input_dir+'/*.txt')))
+        self._output_file_list = np.array(sorted(glob.glob(output_dir+'/*.bin')))
         self._file_len = len(self._input_file_list)
+
+        self.index = np.arange(self._file_len)
+        np.random.shuffle(self.index)
+        self._input_file_list = self._input_file_list[self.index]
+        self._input_spec_list = self._input_spec_list[self.index]
+        self._output_file_list = self._output_file_list[self.index]
+
         self._name = name
         assert self._file_len == len(self._output_file_list), "# input files and output file is not matched"
         self._w = target_delay

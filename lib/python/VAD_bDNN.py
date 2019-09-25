@@ -51,8 +51,8 @@ w = 19  # w default = 19
 u = 9  # u default = 9
 eval_th = 0.6
 th = 0.6
-num_hidden_1 = 512
-num_hidden_2 = 512
+num_hidden_1 = 2
+num_hidden_2 = 2
 
 batch_size = 4096 + 2*w # batch_size = 4096
 valid_batch_size = batch_size
@@ -459,7 +459,8 @@ def main(prj_dir=None, model=None, mode=None):
         print("Model restored...")
 
         if mode is 'train':
-            saver.restore(sess, ckpt.model_checkpoint_path)
+            sess.run(tf.global_variables_initializer())
+            #saver.restore(sess, ckpt.model_checkpoint_path)
         else:
             saver.restore(sess, initial_logs_dir+ckpt_name)
             # print(initial_logs_dir)
@@ -484,7 +485,7 @@ def main(prj_dir=None, model=None, mode=None):
 
             sess.run(m_train.train_op, feed_dict=feed_dict)
 
-            if itr % 10 == 0 and itr >= 0:
+            if itr % 1 == 0 and itr >= 0:
 
                 train_cost, logits = sess.run([m_train.cost, m_train.logits], feed_dict=feed_dict)
 
@@ -496,7 +497,7 @@ def main(prj_dir=None, model=None, mode=None):
                 train_accuracy = train_accuracy.astype(int)
                 train_accuracy = np.sum(train_accuracy) / batch_size  # change to mean...
 
-                print("Step: %d, train_cost: %.4f, train_accuracy=%4.4f" % (itr, train_cost, train_accuracy*100))
+                print("Step: %d, train_cost: %.4f, train_accuracy=%4.4f" % (itr, train_cost, train_accuracy))
 
                 train_cost_summary_str = sess.run(cost_summary_op, feed_dict={summary_ph: train_cost})
                 train_accuracy_summary_str = sess.run(accuracy_summary_op, feed_dict={summary_ph: train_accuracy})
@@ -504,7 +505,7 @@ def main(prj_dir=None, model=None, mode=None):
                 train_summary_writer.add_summary(train_accuracy_summary_str, itr)
 
             # if train_data_set.eof_checker():
-            if itr % 50 == 0 and itr > 0:
+            if itr % 5 == 0 and itr > 0:
 
                 saver.save(sess, logs_dir + "/model.ckpt", itr)  # model save
                 print('validation start!')
@@ -512,7 +513,7 @@ def main(prj_dir=None, model=None, mode=None):
                 valid_accuracy, valid_cost = \
                     utils.do_validation(m_valid, sess, valid_file_dir, norm_dir, type='bDNN')
 
-                print("valid_cost: %.4f, valid_accuracy=%4.4f" % (valid_cost, valid_accuracy * 100))
+                print("valid_cost: %.4f, valid_accuracy=%4.4f" % (valid_cost, valid_accuracy))
                 valid_cost_summary_str = sess.run(cost_summary_op, feed_dict={summary_ph: valid_cost})
                 valid_accuracy_summary_str = sess.run(accuracy_summary_op, feed_dict={summary_ph: valid_accuracy})
                 valid_summary_writer.add_summary(valid_cost_summary_str, itr)  # write the train phase summary to event files

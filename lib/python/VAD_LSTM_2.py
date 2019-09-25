@@ -532,7 +532,8 @@ def main(prj_dir=None, model=None, mode=None):
         print("Model restored...")
 
         if mode is 'train':
-            saver.restore(sess, ckpt.model_checkpoint_path)
+            sess.run(tf.global_variables_initializer())
+            #saver.restore(sess, ckpt.model_checkpoint_path)
         else:
             saver.restore(sess, initial_logs_dir+ckpt_name)
             # saver.restore(sess, logs_dir+ckpt_name)

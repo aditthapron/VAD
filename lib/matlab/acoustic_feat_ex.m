@@ -27,7 +27,7 @@ train_std = 0;
 
 for i = 1:1:length(audio_list)
     clc
-    fprintf("MRCG extraction %d/%d ...\n", i, length(audio_list));
+    fprintf("MFCC extraction %d/%d ...\n", i, length(audio_list));
     %% Read audio
     
     noisy_speech = audioread(audio_list{i});  % noisy_speech load
@@ -70,7 +70,7 @@ for i = 1:1:length(audio_list)
     end
 end
 
-disp('MRCG extraction done.')
+disp('MFCC extraction done.')
 %% Save global normalization factor
 
 global_mean = train_mean / length(audio_list);
