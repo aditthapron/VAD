@@ -4,7 +4,7 @@
 #SBATCH --gres=gpu:1
 #SBATCH -C K20|K40|K80
 #SBATCH -t 24:00:00
-#SBATCH --mem 16G
+#SBATCH --mem 8G
 #SBATCH -p short
 
 source activate WASH_GPU

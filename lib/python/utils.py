@@ -614,6 +614,12 @@ def do_validation(m_valid, sess, valid_file_dir, norm_dir, type='DNN'):
 
         valid_data_set = dr.DataReader(valid_file_dir, valid_file_dir + '/Labels', norm_dir, w=cg.w,
                                            u=cg.u, name="eval")
+        if not os.path.exists(valid_file_dir+"/npz"):
+            valid_data_set.gen_data()
+        valid_dataset = valid_data_set.get_datagen()
+        iterator = valid_dataset.make_one_shot_iterator()
+        next_element = iterator.get_next()
+
         avg_valid_accuracy = 0.
         avg_valid_cost = 0.
         itr_sum = 0.
@@ -623,9 +629,7 @@ def do_validation(m_valid, sess, valid_file_dir, norm_dir, type='DNN'):
         itr_file = 0
 
         while True:
-
-            valid_inputs, valid_labels = valid_data_set.next_batch(valid_batch_size)
-
+            train_inputs, train_labels = sess.run(next_element)
             if valid_data_set.file_change_checker():
                 # print(itr_file)
                 accuracy_list[itr_file] = avg_valid_accuracy / itr_sum
@@ -669,41 +673,24 @@ def do_validation(m_valid, sess, valid_file_dir, norm_dir, type='DNN'):
         valid_batch_size = cg.batch_size
 
         valid_data_set = dr.DataReader(valid_file_dir, valid_file_dir+'/Labels', norm_dir, w=cg.w,
-                                           u=cg.u, name="eval")
+                                           u=cg.u, name="eval",batch_size = valid_batch_size)
+
+        if not os.path.exists(valid_file_dir+"/npz"):
+            valid_data_set.gen_data()
+        valid_dataset,batch_num = valid_data_set.get_datagen()
+        iterator = valid_dataset.make_one_shot_iterator()
+        next_element = iterator.get_next()
+
         avg_valid_accuracy = 0.
         avg_valid_cost = 0.
         itr_sum = 0.
 
-        accuracy_list = [0 for i in range(valid_data_set._file_len)]
-        cost_list = [0 for i in range(valid_data_set._file_len)]
-        itr_file = 0
-        while True:
+        for b in range(batch_num):
 
-            valid_inputs, valid_labels = valid_data_set.next_batch(valid_batch_size)
-
-            if valid_data_set.file_change_checker():
-                # print(itr_file)
-                accuracy_list[itr_file] = avg_valid_accuracy / itr_sum
-                cost_list[itr_file] = avg_valid_cost / itr_sum
-                avg_valid_cost = 0.
-                avg_valid_accuracy = 0.
-                itr_sum = 0
-                itr_file += 1
-                valid_data_set.file_change_initialize()
-
-            if valid_data_set.eof_checker():
-                valid_data_set.reader_initialize()
-                print('Valid data reader was initialized!')  # initialize eof flag & num_file & start index
-                break
+            valid_inputs, valid_labels = sess.run(next_element)
 
             feed_dict = {m_valid.inputs: valid_inputs, m_valid.labels: valid_labels,
                          m_valid.keep_probability: 1}
-
-            # valid_cost, valid_softpred, valid_raw_labels\
-            #     = sess.run([m_valid.cost, m_valid.softpred, m_valid.raw_labels], feed_dict=feed_dict)
-            #
-            # fpr, tpr, thresholds = metrics.roc_curve(valid_raw_labels, valid_softpred, pos_label=1)
-            # valid_auc = metrics.auc(fpr, tpr)
 
             valid_cost, valid_accuracy = sess.run([m_valid.cost, m_valid.reward], feed_dict=feed_dict)
 
@@ -711,8 +698,8 @@ def do_validation(m_valid, sess, valid_file_dir, norm_dir, type='DNN'):
             avg_valid_cost += valid_cost
             itr_sum += 1
 
-        total_avg_valid_accuracy = np.asscalar(np.mean(np.asarray(accuracy_list)))
-        total_avg_valid_cost = np.asscalar(np.mean(np.asarray(cost_list)))
+        total_avg_valid_accuracy = avg_valid_accuracy/itr_sum
+        total_avg_valid_cost = avg_valid_cost/itr_sum
 
     elif type is 'LSTM':
 
