@@ -471,17 +471,19 @@ def main(prj_dir=None, model=None, mode=None):
         sess.run(tf.global_variables_initializer())  # if the checkpoint doesn't exist, do initialization
 
     if mode is 'train':
-        train_data_set = dr.DataReader(input_dir, output_dir, norm_dir, w=w, u=u, name="train")  # training data reader initialization
-    # train_data_set = dr.DataReader(input_dir, output_dir, norm_dir, w=w, u=u, name="train")  # training data reader initialization
-
-    if mode is 'train':
+        train_data_set = dr.DataReader(input_dir, output_dir, norm_dir, w=w, u=u, name="train",batch_size = batch_size)  # training data reader initialization
+        if not os.path.exists(input_dir+"/npz"):
+            train_data_set.gen_data()
+        train_dataset,batch_num = train_data_set.get_datagen()
+        iterator = train_dataset.make_one_shot_iterator()
+        next_element = iterator.get_next()
 
         for itr in range(max_epoch):
 
-            train_inputs, train_labels = train_data_set.next_batch(batch_size)
+            train_inputs, train_labels = sess.run(next_element)
 
             feed_dict = {m_train.inputs: train_inputs, m_train.labels: train_labels,
-                         m_train.keep_probability: dropout_rate}
+                         m_train.keep_probability: 1.0-dropout_rate}
 
             sess.run(m_train.train_op, feed_dict=feed_dict)
 
@@ -505,7 +507,7 @@ def main(prj_dir=None, model=None, mode=None):
                 train_summary_writer.add_summary(train_accuracy_summary_str, itr)
 
             # if train_data_set.eof_checker():
-            if itr % 5 == 0 and itr > 0:
+            if itr % 1 == 0 and itr > 0:
 
                 saver.save(sess, logs_dir + "/model.ckpt", itr)  # model save
                 print('validation start!')

@@ -5,11 +5,11 @@ import utils
 import scipy.io as sio
 import matplotlib.pyplot as plt
 import matplotlib.image as mpimg
-
+import tensorflow as tf
 
 class DataReader(object):
 
-    def __init__(self, input_dir, output_dir, norm_dir, target_delay=19, u=9, name=None):
+    def __init__(self, input_dir, output_dir, norm_dir, target_delay=19, u=9, name=None,batch_size=2048):
         # print(name.title() + " data reader initialization...")
         self._input_dir = input_dir
         self._output_dir = output_dir
@@ -18,6 +18,8 @@ class DataReader(object):
         self._input_spec_list = np.array(sorted(glob.glob(input_dir+'/*.txt')))
         self._output_file_list = np.array(sorted(glob.glob(output_dir+'/*.bin')))
         self._file_len = len(self._input_file_list)
+
+        self.batch_size = batch_size
 
         self.index = np.arange(self._file_len)
         np.random.shuffle(self.index)
@@ -40,7 +42,7 @@ class DataReader(object):
         self._epoch = 1
         self._num_file = 0
         self._start_idx = 0  #
-
+        self.id = 0
         norm_param = sio.loadmat(self._norm_dir+'/global_normalize_factor.mat')
         self.train_mean = norm_param['global_mean']
         self.train_std = norm_param['global_std']
@@ -80,64 +82,85 @@ class DataReader(object):
         inputs = np.concatenate((inputs, window_pad), axis=0)
         return inputs
 
-    def next_batch(self, batch_size):
+    def get_datagen(self):
+        with tf.device('/cpu:0'):
+            filenames = np.array(sorted(glob.glob(self._input_dir+'/npz/*.npz')))
+            batch_num = len(filenames) 
+            dataset = tf.data.Dataset.from_tensor_slices((filenames))
+            dataset = dataset.shuffle(len(filenames))
+            dataset = dataset.map(lambda item: tuple(tf.py_func(self.read_npy_file, [item], [tf.float32,tf.float32,])), num_parallel_calls=8)
+            dataset = dataset.prefetch(8)
+        return dataset,batch_num
+    @staticmethod
+    def read_npy_file(item):
+        data = np.load(item.decode())
+        return data['inputs'].astype(np.float32), data['outputs'].astype(np.float32)
 
-        if self._start_idx == 0:
-            self._inputs = self._padding(
-                self._read_input(self._input_file_list[self._num_file],
-                                 self._input_spec_list[self._num_file]), batch_size, self._w)
-            self._outputs = self._padding(self._read_output(self._output_file_list[self._num_file]), batch_size, self._w)
-            assert np.shape(self._inputs)[0] == np.shape(self._outputs)[0], \
-                ("# samples is not matched between input: %d and output: %d files"
-                 % (np.shape(self._inputs)[0], np.shape(self._outputs)[0]))
+    def gen_data(self):
+        os.makedirs(self._input_dir + '/npz')
+        print("Generating data")
+        batch_size = self.batch_size
+        while(True):
+            if self._start_idx == 0:
+                self._inputs = self._padding(
+                    self._read_input(self._input_file_list[self._num_file],
+                                     self._input_spec_list[self._num_file]), batch_size, self._w)
+                self._outputs = self._padding(self._read_output(self._output_file_list[self._num_file]), batch_size, self._w)
+                assert np.shape(self._inputs)[0] == np.shape(self._outputs)[0], \
+                    ("# samples is not matched between input: %d and output: %d files"
+                     % (np.shape(self._inputs)[0], np.shape(self._outputs)[0]))
 
-            self.num_samples = np.shape(self._outputs)[0]
+                self.num_samples = np.shape(self._outputs)[0]
 
-        if self._start_idx + batch_size > self.num_samples:
+            if self._start_idx + batch_size > self.num_samples:
 
-            self._start_idx = 0
-            self.file_change = True
-            self._num_file += 1
+                self._start_idx = 0
+                self.file_change = True
+                self._num_file += 1
 
-            # print("EOF : " + self._name + " file_" + str(self._num_file-1).zfill(2) +
-            #       " -> BOF : " + self._name + " file_" + str(self._num_file).zfill(2))
+                # print("EOF : " + self._name + " file_" + str(self._num_file-1).zfill(2) +
+                #       " -> BOF : " + self._name + " file_" + str(self._num_file).zfill(2))
 
-            if self._num_file > self._file_len - 1:
-                self.eof = True
-                self._num_file = 0
-                # print("EOF : last " + self._name + " file. " + "-> BOF : " + self._name + " file_" +
-                #       str(self._num_file).zfill(2))
+                if self._num_file > self._file_len - 1:
+                    self.eof = True
+                    self._num_file = 0
+                    break
+                    # print("EOF : last " + self._name + " file. " + "-> BOF : " + self._name + " file_" +
+                    #       str(self._num_file).zfill(2))
 
-            self._inputs = self._padding(
-                self._read_input(self._input_file_list[self._num_file],
-                                 self._input_spec_list[self._num_file]), batch_size, self._w)
+                self._inputs = self._padding(
+                    self._read_input(self._input_file_list[self._num_file],
+                                     self._input_spec_list[self._num_file]), batch_size, self._w)
 
-            self._outputs = self._padding(self._read_output(self._output_file_list[self._num_file]), batch_size, self._w)
+                self._outputs = self._padding(self._read_output(self._output_file_list[self._num_file]), batch_size, self._w)
 
-            data_len = np.shape(self._inputs)[0]
-            self._outputs = self._outputs[0:data_len, :]
+                data_len = np.shape(self._inputs)[0]
+                self._outputs = self._outputs[0:data_len, :]
 
-            assert np.shape(self._inputs)[0] == np.shape(self._outputs)[0], \
-                ("# samples is not matched between input: %d and output: %d files"
-                 % (np.shape(self._inputs)[0], np.shape(self._outputs)[0]))
+                assert np.shape(self._inputs)[0] == np.shape(self._outputs)[0], \
+                    ("# samples is not matched between input: %d and output: %d files"
+                     % (np.shape(self._inputs)[0], np.shape(self._outputs)[0]))
 
-            self.num_samples = np.shape(self._outputs)[0]
+                self.num_samples = np.shape(self._outputs)[0]
 
-        else:
-            self.file_change = False
-            self.eof = False
+            else:
+                self.file_change = False
+                self.eof = False
 
-        inputs = self._inputs
-        outputs = self._outputs
+            inputs = self._inputs
+            outputs = self._outputs
 
-        '''data mini batching part'''
+            '''data mini batching part'''
 
-        inputs = inputs[self._start_idx:self._start_idx + batch_size + self._w, :]
-        outputs = outputs[self._start_idx:self._start_idx + batch_size, :]
+            inputs = inputs[self._start_idx:self._start_idx + batch_size + self._w, :]
+            outputs = outputs[self._start_idx:self._start_idx + batch_size, :]
+            
+            self._start_idx += batch_size
+            outfile = self._input_dir + '/npz/' + str(self.id).zfill(6)
+            self.id = self.id +1
+            np.savez(outfile, inputs=np.nan_to_num(inputs), outputs=outputs)
 
-        self._start_idx += batch_size
 
-        return np.nan_to_num(inputs), outputs
 
     # def next_batch(self, batch_size):
     #

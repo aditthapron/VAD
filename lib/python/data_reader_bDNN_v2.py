@@ -111,7 +111,7 @@ class DataReader(object):
         return data['inputs'].astype(np.float32), data['outputs'].astype(np.float32)
 
     def gen_data(self):
-        os.popen('mkdir -p ' + self._input_dir + '/npz')
+        os.makedirs(self._input_dir + '/npz')
         print("Generating data")
         while(True):
             batch_size = self.batch_size
@@ -181,17 +181,6 @@ class DataReader(object):
             self.id = self.id +1
             np.savez(outfile, inputs=np.nan_to_num(inputs), outputs=outputs)
 
-    def gen_all(self, batch_size):
-        x,y=[],[]
-        while True:
-            if len(x) == 0:
-                x,y = self.next_batch(batch_size)
-            else:
-                x_temp,y_temp = self.next_batch(batch_size)
-                if x_temp is None:
-                    break
-                x,y = np.concatenate((x,x_temp)),np.concatenate((y,y_temp))
-        return x,y
 
     def normalize(self, x):
         x = (x - self.train_mean)/self.train_std

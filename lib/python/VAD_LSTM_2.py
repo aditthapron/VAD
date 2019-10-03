@@ -180,14 +180,8 @@ def inference(inputs, keep_prob, is_training=True, reuse=None):
 
         outputs = tf.nn.dropout(outputs, keep_prob=keep_prob)
 
-        # # h1_out = affine_transform(inputs, num_hidden_1, name="hidden_1")
-        # lh1_out = utils.batch_norm_affine_transform(outputs, num_hidden_1, name="lhidden_1", decay=decay,
-        #                                             is_training=is_training)
-        # lh1_out = tf.nn.relu(lh1_out)
-        # lh1_out = tf.nn.dropout(lh1_out, keep_prob=keep_prob)
-
         logits = affine_transform(outputs, bdnn_outputsize, name="output1")
-        # logits = tf.sigmoid(logits)
+        
         logits = tf.reshape(logits, [-1, int(bdnn_outputsize)])
 
     return logits
@@ -424,27 +418,17 @@ class Model(object):
         self.logits = logits = inference(inputs, self.keep_probability, is_training=is_training)  # (batch_size, bdnn_outputsize)
         # set objective function
         # self.cost = cost = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(labels=labels, logits=logits))
-        pred = tf.argmax(logits, axis=1, name="prediction")
-        softpred = tf.identity(logits[:, 1], name="soft_pred")
+        soft = tf.nn.softmax(logits)
+        pred = tf.argmax(soft, axis=1, name="prediction")
+        self.soft_pred = tf.identity(soft[:, 1], name="soft_pred")
 
         pred = tf.cast(pred, tf.int32)
         truth = tf.cast(labels[:, 1], tf.int32)
-
+        self.recall = tf.metrics.recall(labels=truth,predictions=pred)
+        self.precision = tf.metrics.precision(labels=truth,predictions=pred)
         self.raw_labels = tf.identity(truth, name="raw_labels")
-
-        log_one = logits[:, 1]
-
         self.accuracy = tf.reduce_mean(tf.cast(tf.equal(pred, truth), tf.float32))
-        self.cost = cost = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(labels=labels, logits = logits))
-        # self.cost = cost = tf.reduce_mean(tf.square(labels - logits))
-        # fpr, tpr, thresholds = metrics.roc_curve(np.array(truth), np.array(pred), pos_label=2)
-        # self.auc = metrics.auc(fpr, tpr)
-        # cost = tf.nn.softmax_cross_entropy_with_logits(labels=labels, logits=logits)
-        # cost = tf.reduce_sum(tf.square(labels - logits), axis=1)
-        # self.cost = cost = tf.reduce_mean(cost)
-
-        # self.sigm = tf.sigmoid(logits)
-        # set training strategy
+        self.cost = cost = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits_v2(labels=labels, logits = logits))
 
         trainable_var = tf.trainable_variables()
         self.train_op = train(cost, trainable_var)
@@ -532,7 +516,9 @@ def main(prj_dir=None, model=None, mode=None):
         print("Model restored...")
 
         if mode is 'train':
-            sess.run(tf.global_variables_initializer())
+            init = tf.group(tf.global_variables_initializer(), tf.local_variables_initializer())
+            sess.run(init)
+
             #saver.restore(sess, ckpt.model_checkpoint_path)
         else:
             saver.restore(sess, initial_logs_dir+ckpt_name)
@@ -542,29 +528,36 @@ def main(prj_dir=None, model=None, mode=None):
 
         print("Done")
     else:
-        sess.run(tf.global_variables_initializer())  # if the checkpoint doesn't exist, do initialization
+        init = tf.group(tf.global_variables_initializer(), tf.local_variables_initializer())
+        sess.run(init)  # if the checkpoint doesn't exist, do initialization
 
     if mode is 'train':
-        train_data_set = dr.DataReader(input_dir, output_dir, norm_dir, target_delay=target_delay, u=u, name="train")  # training data reader initialization
+        train_data_set = dr.DataReader(input_dir, output_dir, norm_dir, target_delay=target_delay, u=u, name="train",batch_size = batch_size)  # training data reader initialization
 
-    # train_data_set = dr.DataReader(input_dir, output_dir, norm_dir, target_delay=target_delay, u=u, name="train")  # training data reader initialization
-
-    if mode is 'train':
-
+        if not os.path.exists(input_dir+"/npz"):
+            train_data_set.gen_data()
+        train_dataset,batch_num = train_data_set.get_datagen()
+        iterator = train_dataset.make_initializable_iterator()
+        next_element = iterator.get_next()
+        sess.run(iterator.initializer)
         for itr in range(max_epoch):
 
-            train_inputs, train_labels = train_data_set.next_batch(batch_size)
+            train_inputs, train_labels = sess.run(next_element)
             one_hot_labels = train_labels.reshape((-1, 1))
             one_hot_labels = dense_to_one_hot(one_hot_labels, num_classes=2)
             feed_dict = {m_train.inputs: train_inputs, m_train.labels: one_hot_labels,
-                         m_train.keep_probability: dropout_rate}
+                         m_train.keep_probability: 1.0-dropout_rate}
 
             sess.run(m_train.train_op, feed_dict=feed_dict)
 
-            if itr % 10 == 0 and itr >= 0:
-                train_cost, train_accuracy = sess.run([m_train.cost, m_train.accuracy], feed_dict=feed_dict)
+            if itr % 1 == 0 and itr >= 0:
+		try:
+                    train_cost, train_accuracy = sess.run([m_train.cost, m_train.accuracy], feed_dict=feed_dict)
+                except tf.errors.OutOfRangeError:
+                    sess.run(iterator.initializer)
+                    train_cost, train_accuracy = sess.run([m_train.cost, m_train.accuracy], feed_dict=feed_dict)
 
-                print("Step: %d, train_cost: %.4f, train_accuracy=%4.4f" % (itr, train_cost, train_accuracy*100))
+                print("Step: %d, train_cost: %.4f, train_accuracy=%4.4f" % (itr, train_cost, train_accuracy))
 
                 train_cost_summary_str = sess.run(cost_summary_op, feed_dict={summary_ph: train_cost})
                 train_accuracy_summary_str = sess.run(accuracy_summary_op, feed_dict={summary_ph: train_accuracy})
@@ -572,26 +565,21 @@ def main(prj_dir=None, model=None, mode=None):
                 train_summary_writer.add_summary(train_accuracy_summary_str, itr)
 
             # if train_data_set.eof_checker():
-            if itr % 50 == 0 and itr > 0:
+            if itr % 5 == 0 and itr > 0:
 
                 saver.save(sess, logs_dir + "/model.ckpt", itr)  # model save
                 print('validation start!')
-                valid_accuracy, valid_cost = \
+                utils.testing(m_valid, sess, valid_file_dir, norm_dir, type='LSTM')
+                valid_accuracy, valid_cost, auc = \
                     utils.do_validation(m_valid, sess, valid_file_dir, norm_dir, type='LSTM')
 
-                print("valid_cost: %.4f, valid_accuracy=%4.4f" % (valid_cost, valid_accuracy * 100))
+                print("valid_cost: %.4f, valid_accuracy=%4.4f,valid_auc=%4.4f" % (valid_cost, valid_accuracy, auc))
                 valid_cost_summary_str = sess.run(cost_summary_op, feed_dict={summary_ph: valid_cost})
                 valid_accuracy_summary_str = sess.run(accuracy_summary_op, feed_dict={summary_ph: valid_accuracy})
                 valid_summary_writer.add_summary(valid_cost_summary_str, itr)  # write the train phase summary to event files
                 valid_summary_writer.add_summary(valid_accuracy_summary_str, itr)
 
-                # mean_acc = full_evaluation(m_valid, sess, valid_batch_size, valid_file_dir,
-                #                            valid_summary_writer, summary_dic, itr)
-            # if mean_acc > 0.968:
-            #     print('finish!!')
-            #     break
-                # train_data_set.reader_initialize()
-                # print('Train data reader was initialized!')  # initialize eof flag & num_file & start index
+        
 
     elif mode is 'test':
 

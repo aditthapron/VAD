@@ -29,24 +29,7 @@ tf.reset_default_graph()
 tf.set_random_seed(SEED)
 mode = 'test'
 
-# FLAGS = tf.flags.FLAGS
-# tf.flags.DEFINE_string('mode', 'test', "mode : train/ test [default : train]")
 
-'''file directory'''
-
-file_dir = "/home/sbie/storage2/VAD_Database/SE_TIMIT_MRCG_0328"
-input_dir = file_dir
-output_dir = file_dir + "/Labels"
-valid_file_dir = "/home/sbie/storage2/VAD_Database/NX_TIMIT_MRCG_small2"
-# valid_file_dir = "/home/sbie/storage2/VAD_Database/record_data"
-
-test_file_dir = "/home/sbie/storage2/VAD_Database/NX_TIMIT_MRCG_big"
-norm_dir = input_dir
-logs_dir = "/home/sbie/github/VAD_bDNN_baseline/logs_proposed_multi"
-save_dir = "/home/sbie/storage2/VAD_Database/saved_model/candidate"
-initial_logs_dir = "/home/sbie/storage2/VAD_Database/saved_model/my_converted_checkpoint2"
-# initial_logs_dir = "/fake_dir"
-ckpt_name = '/RF'
 
 if mode == 'test':
 
@@ -843,30 +826,20 @@ def main(prj_dir=None, model=None, mode=None):
             # if train_data_set.eof_checker():
 
             # if itr % val_freq == 0 and itr >= val_start_step:
-            if itr % 1 == 0 and itr > 0:
+            if itr % 5 == 0 and itr > 0:
                 saver.save(sess, logs_dir + "/model.ckpt", itr)  # model save
                 print('validation start!')
-                valid_accuracy, valid_cost = \
+                valid_accuracy, valid_cost, auc = \
                     utils.do_validation(m_valid, sess, valid_file_dir, norm_dir,
                                         type='ACAM')
 
-                print("valid_cost: %.4f, valid_accuracy=%4.4f" % (valid_cost, valid_accuracy))
+                print("valid_cost: %.4f, valid_accuracy=%4.4f,  valid_auc=%4.4f" % (valid_cost, valid_accuracy, auc))
                 valid_cost_summary_str = sess.run(cost_summary_op, feed_dict={summary_ph: valid_cost})
                 valid_accuracy_summary_str = sess.run(accuracy_summary_op, feed_dict={summary_ph: valid_accuracy})
                 valid_summary_writer.add_summary(valid_cost_summary_str, itr)  # write the train phase summary to event files
                 valid_summary_writer.add_summary(valid_accuracy_summary_str, itr)
 
-                # mean_accuracy, var_accuracy = full_evaluation(m_valid, sess, valid_batch_size, valid_file_dir, valid_summary_writer, summary_dic, itr)
-                # if mean_accuracy >= 0.991:
-                #
-                #     print('model was saved!')
-                #     model_name = '/model' + str(int(mean_accuracy * 1e4)) + 'and'\
-                #                  + str(int(var_accuracy * 1e5)) + '.ckpt'
-                #     saver.save(sess, save_dir + model_name, itr)
-                # mean_acc_list.append(mean_accuracy)
-                # var_acc_list.append(var_accuracy)
-
-                # train_data_set.initialize()
+                
 
     elif mode == 'test':
 

@@ -5,16 +5,13 @@ import VAD_Proposed as Vp
 import VAD_DNN as Vd
 import VAD_bDNN as Vb
 import VAD_LSTM_2 as Vl
+import VAD_CNN as Vcnn
 import scipy.io as sio
 import os, getopt
 import time
 import graph_save as gs
 import path_setting as ps
-# norm_dir = "./norm_data"
-# data_dir = "./sample_data"
-# ckpt_name = '/model9918and41.ckpt-2'
-# model_dir = "./saved_model"
-# valid_batch_size = 4134
+
 print('debug')
 if __name__ == '__main__':
 
@@ -49,9 +46,9 @@ if __name__ == '__main__':
     if extract_feat:
 
         os.system("rm -rf " + save_dir)
-        os.system("mkdir " + save_dir)
-        os.system("mkdir " + save_dir + '/train')
-        os.system("mkdir " + save_dir + '/valid')
+        os.system("mkdir -p " + save_dir)
+        os.system("mkdir -p " + save_dir + '/train')
+        os.system("mkdir -p " + save_dir + '/valid')
         os.system(
             "matlab -r \"addpath('./lib/matlab/'); acoustic_feat_ex(\'%s\',\'%s\'); quit\"" % (train_data_dir, train_save_dir))
         os.system(
@@ -69,8 +66,8 @@ if __name__ == '__main__':
 
         os.system("rm -rf " + logs_dir + '/train')
         os.system("rm -rf " + logs_dir + '/valid')
-        os.system("mkdir " + logs_dir + '/train')
-        os.system("mkdir " + logs_dir + '/valid')
+        os.system("mkdir -p " + logs_dir + '/train')
+        os.system("mkdir -p " + logs_dir + '/valid')
 
         Vp.main(prj_dir, 'ACAM', 'train')
 
@@ -88,8 +85,8 @@ if __name__ == '__main__':
 
         os.system("rm -rf " + logs_dir + '/train')
         os.system("rm -rf " + logs_dir + '/valid')
-        os.system("mkdir " + logs_dir + '/train')
-        os.system("mkdir " + logs_dir + '/valid')
+        os.system("mkdir -p " + logs_dir + '/train')
+        os.system("mkdir -p " + logs_dir + '/valid')
 
         # Vb.train_config(save_dir+'/train', save_dir+'/valid', prj_dir+'/logs', batch_size,
         #                 train_step, 'train')
@@ -106,8 +103,8 @@ if __name__ == '__main__':
 
         os.system("rm -rf " + logs_dir + '/train')
         os.system("rm -rf " + logs_dir + '/valid')
-        os.system("mkdir " + logs_dir + '/train')
-        os.system("mkdir " + logs_dir + '/valid')
+        os.system("mkdir -p " + logs_dir + '/train')
+        os.system("mkdir -p " + logs_dir + '/valid')
 
         Vd.main(prj_dir, 'DNN', 'train')
 
@@ -121,12 +118,29 @@ if __name__ == '__main__':
 
         os.system("rm -rf " + logs_dir + '/train')
         os.system("rm -rf " + logs_dir + '/valid')
-        os.system("mkdir " + logs_dir + '/train')
-        os.system("mkdir " + logs_dir + '/valid')
+        os.system("mkdir -p " + logs_dir + '/train')
+        os.system("mkdir -p " + logs_dir + '/valid')
 
         Vl.main(prj_dir, 'LSTM', 'train')
 
         gs.freeze_graph(prj_dir + '/logs/LSTM', prj_dir + '/saved_model/graph/LSTM', 'model_1/soft_pred,model_1/raw_labels')
+
+        # os.system("rm -rf")
+        print("done")
+
+    if mode == 4:
+
+        set_path = ps.PathSetting(prj_dir, 'CNN')
+        logs_dir = set_path.logs_dir
+
+        os.system("rm -rf " + logs_dir + '/train')
+        os.system("rm -rf " + logs_dir + '/valid')
+        os.system("mkdir -p " + logs_dir + '/train')
+        os.system("mkdir -p " + logs_dir + '/valid')
+
+        Vcnn.main(prj_dir, 'CNN', 'train')
+
+        gs.freeze_graph(prj_dir + '/logs/CNN', prj_dir + '/saved_model/graph/CNN', 'model_1/soft_pred,model_1/raw_labels')
 
         # os.system("rm -rf")
         print("done")

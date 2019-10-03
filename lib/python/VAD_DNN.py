@@ -320,7 +320,7 @@ class Model(object):
         self.logits = logits = inference(inputs, self.keep_probability, is_training=is_training)  # (batch_size, bdnn_outputsize)
         # set objective function
         pred = tf.argmax(logits, axis=1, name="prediction")
-        softpred = tf.identity(logits[:, 1], name="soft_pred")
+        self.soft_result = tf.identity(logits[:, 1], name="soft_pred")
         pred = tf.cast(pred, tf.int32)
         truth = tf.cast(labels[:, 1], tf.int32)
 
@@ -429,25 +429,27 @@ def main(prj_dir=None, model=None, mode=None):
     else:
         sess.run(tf.global_variables_initializer())  # if the checkpoint doesn't exist, do initialization
     if mode is 'train':
-        train_data_set = dr.DataReader(input_dir, output_dir, norm_dir, w=w, u=u, name="train")  # training data reader initialization
-
-    if mode is 'train':
+        train_data_set = dr.DataReader(input_dir, output_dir, norm_dir, w=w, u=u, name="train",batch_size = batch_size)  # training data reader initialization
+        if not os.path.exists(input_dir+"/npz"):
+            train_data_set.gen_data()
+        train_dataset,batch_num = train_data_set.get_datagen()
+        iterator = train_dataset.make_one_shot_iterator()
+        next_element = iterator.get_next()
 
         for itr in range(max_epoch):
 
-            train_inputs, train_labels = train_data_set.next_batch(batch_size)
-            
+            train_inputs, train_labels = sess.run(next_element)
             # imgplot = plt.imshow(train_inputs)
             # plt.show()
             one_hot_labels = train_labels.reshape((-1, 1))
             one_hot_labels = dense_to_one_hot(one_hot_labels, num_classes=2)
 
             feed_dict = {m_train.inputs: train_inputs, m_train.labels: one_hot_labels,
-                         m_train.keep_probability: dropout_rate}
+                         m_train.keep_probability: 1.0-dropout_rate}
 
             sess.run(m_train.train_op, feed_dict=feed_dict)
 
-            if itr % 10 == 0 and itr >= 0:
+            if itr % 1 == 0 and itr >= 0:
 
                 # train_cost, train_softpred, train_raw_labels \
                 #     = sess.run([m_train.cost, m_train.softpred, m_train.raw_labels], feed_dict=feed_dict)
@@ -465,14 +467,14 @@ def main(prj_dir=None, model=None, mode=None):
                 train_summary_writer.add_summary(train_accuracy_summary_str, itr)
 
             # if train_data_set.eof_checker():
-            if itr % 50 == 0 and itr > 0:
+            if itr % 1 == 0 and itr > 0:
 
                 saver.save(sess, logs_dir + "/model.ckpt", itr)  # model save
                 print('validation start!')
-                valid_accuracy, valid_cost = \
+                valid_accuracy, valid_cost, auc = \
                     utils.do_validation(m_valid, sess, valid_file_dir, norm_dir, type='DNN')
 
-                print("valid_cost: %.4f, valid_accuracy=%4.4f" % (valid_cost, valid_accuracy * 100))
+                print("valid_cost: %.4f, valid_accuracy=%4.4f,  valid_auc=%4.4f" % (valid_cost, valid_accuracy, auc))
                 valid_cost_summary_str = sess.run(cost_summary_op, feed_dict={summary_ph: valid_cost})
                 valid_accuracy_summary_str = sess.run(accuracy_summary_op, feed_dict={summary_ph: valid_accuracy})
                 valid_summary_writer.add_summary(valid_cost_summary_str, itr)  # write the train phase summary to event files
